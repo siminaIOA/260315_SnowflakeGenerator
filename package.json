@@ -1,0 +1,17 @@
+{
+  "name": "260315_snowflakegenerator",
+  "version": "1.0.0",
+  "description": "",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build"
+  },
+  "type": "module",
+  "dependencies": {
+    "lil-gui": "^0.21.0",
+    "three": "^0.183.2"
+  },
+  "devDependencies": {
+    "vite": "^8.0.0"
+  }
+}
