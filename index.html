@@ -1,0 +1,564 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>260315_SnowflakeGenerator</title>
+  <style>
+    :root {
+      --ui-glass: rgba(214, 236, 255, 0.12);
+      --ui-glass-strong: rgba(214, 236, 255, 0.18);
+      --ui-border: rgba(225, 240, 255, 0.16);
+      --ui-border-strong: rgba(235, 246, 255, 0.28);
+      --ui-text: rgba(245, 250, 255, 0.95);
+      --ui-text-soft: rgba(222, 232, 241, 0.68);
+      --ui-shadow: rgba(2, 12, 24, 0.44);
+      --ui-accent: rgba(176, 227, 255, 0.88);
+      --ui-accent-soft: rgba(190, 236, 255, 0.18);
+      --ui-track: rgba(255, 255, 255, 0.065);
+      --ui-fill: linear-gradient(90deg, rgba(226, 246, 255, 0.9), rgba(164, 218, 255, 0.82));
+    }
+
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    html, body { width: 100%; height: 100%; overflow: hidden; background: #0a0a1a; }
+    body {
+      font-family: "SF Pro Display", "Segoe UI Variable Display", "Segoe UI", sans-serif;
+      letter-spacing: 0.01em;
+    }
+    canvas { display: block; }
+
+    .lil-gui {
+      --background-color: transparent;
+      --text-color: var(--ui-text);
+      --title-background-color: transparent;
+      --title-text-color: var(--ui-text);
+      --widget-color: transparent;
+      --hover-color: rgba(255, 255, 255, 0.05);
+      --focus-color: rgba(255, 255, 255, 0.08);
+      --number-color: var(--ui-accent);
+      --string-color: var(--ui-text);
+      --padding: 8px;
+      --spacing: 3px;
+      --slider-knob-width: 14px;
+      --widget-height: 24px;
+      --name-width: 41%;
+      --font-size: 11px;
+      width: 340px;
+      max-width: calc(100vw - 24px);
+      margin: 14px;
+      padding: 8px;
+      color: var(--ui-text);
+      background:
+        linear-gradient(180deg, rgba(255, 255, 255, 0.14), rgba(255, 255, 255, 0.035)),
+        linear-gradient(160deg, rgba(50, 82, 112, 0.34), rgba(9, 18, 34, 0.68));
+      border: 1px solid var(--ui-border);
+      border-radius: 24px;
+      box-shadow:
+        0 24px 64px -26px var(--ui-shadow),
+        0 12px 30px -22px rgba(166, 215, 255, 0.28),
+        inset 0 1px 0 rgba(255, 255, 255, 0.18);
+      backdrop-filter: blur(30px) saturate(150%);
+      -webkit-backdrop-filter: blur(30px) saturate(150%);
+      overflow: hidden;
+    }
+
+    .lil-gui.root {
+      max-height: calc(100vh - 28px);
+      padding-right: 22px;
+      overflow-x: hidden;
+      scrollbar-gutter: stable;
+    }
+
+    .lil-gui.root > .children {
+      padding-right: 8px;
+    }
+
+    .lil-gui::before {
+      content: "";
+      position: absolute;
+      inset: 0;
+      pointer-events: none;
+      border-radius: inherit;
+      background:
+        radial-gradient(circle at top left, rgba(255, 255, 255, 0.24), transparent 34%),
+        linear-gradient(135deg, rgba(255, 255, 255, 0.06), transparent 40%);
+      opacity: 0.85;
+    }
+
+    .lil-gui::after {
+      content: "";
+      position: absolute;
+      inset: 1px;
+      pointer-events: none;
+      border-radius: 23px;
+      border: 1px solid rgba(255, 255, 255, 0.06);
+      mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+      opacity: 0.8;
+    }
+
+    .lil-gui .title {
+      margin-bottom: 4px;
+      padding: 10px 12px 10px 48px;
+      font-weight: 600;
+      letter-spacing: 0.015em;
+      color: var(--ui-text);
+      background: linear-gradient(180deg, rgba(255, 255, 255, 0.11), rgba(255, 255, 255, 0.025));
+      border: 1px solid rgba(255, 255, 255, 0.07);
+      border-radius: 16px;
+      box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.12);
+    }
+
+    .lil-gui .children {
+      border-left: none;
+      padding-top: 1px;
+      padding-bottom: 1px;
+    }
+
+    .lil-gui .controller {
+      margin-bottom: 3px;
+      padding: 3px 6px;
+      border: 1px solid rgba(255, 255, 255, 0.035);
+      border-radius: 15px;
+      background: linear-gradient(180deg, rgba(255, 255, 255, 0.05), rgba(255, 255, 255, 0.02));
+      box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.045);
+    }
+
+    .lil-gui .controller:hover {
+      border-color: rgba(255, 255, 255, 0.065);
+      background: linear-gradient(180deg, rgba(255, 255, 255, 0.075), rgba(255, 255, 255, 0.03));
+    }
+
+    .lil-gui .name {
+      color: var(--ui-text-soft);
+      font-weight: 500;
+      padding-left: 2px;
+    }
+
+    .lil-gui .widget {
+      border-radius: 999px;
+      background: var(--ui-track);
+      border: 1px solid rgba(255, 255, 255, 0.07);
+      box-shadow: inset 0 1px 1px rgba(0, 0, 0, 0.18);
+      overflow: hidden;
+    }
+
+    .lil-gui input,
+    .lil-gui select,
+    .lil-gui option,
+    .lil-gui button {
+      font: inherit;
+      color: var(--ui-text);
+    }
+
+    .lil-gui input[type="text"],
+    .lil-gui input[type="number"],
+    .lil-gui select {
+      border-radius: 999px;
+      background: rgba(255, 255, 255, 0.055);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.05);
+    }
+
+    .lil-gui select {
+      appearance: none;
+      -webkit-appearance: none;
+    }
+
+    .lil-gui input[type="checkbox"] {
+      width: 16px;
+      height: 16px;
+      border-radius: 4px;
+      border: 1px solid rgba(235, 245, 255, 0.45);
+      background: rgba(255, 255, 255, 0.08);
+      box-shadow:
+        0 0 0 1px rgba(140, 200, 235, 0.08),
+        inset 0 1px 0 rgba(255, 255, 255, 0.14);
+      accent-color: rgb(180, 232, 255);
+    }
+
+    .lil-gui .slider {
+      background: var(--ui-fill);
+      border-radius: 999px;
+      box-shadow:
+        0 0 14px rgba(180, 230, 255, 0.22),
+        inset 0 1px 0 rgba(255, 255, 255, 0.28);
+    }
+
+    .lil-gui button {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 24px;
+      line-height: 1.2;
+      padding: 0 12px;
+      border-radius: 999px;
+      background:
+        linear-gradient(180deg, rgba(214, 242, 255, 0.2), rgba(173, 224, 255, 0.1)),
+        rgba(255, 255, 255, 0.04);
+      border: 1px solid var(--ui-border-strong);
+      box-shadow:
+        0 12px 20px -16px rgba(145, 210, 255, 0.55),
+        inset 0 1px 0 rgba(255, 255, 255, 0.18);
+      transition: background 150ms ease, transform 150ms ease, border-color 150ms ease;
+    }
+
+    .lil-gui button:hover {
+      background:
+        linear-gradient(180deg, rgba(228, 247, 255, 0.28), rgba(188, 230, 255, 0.16)),
+        rgba(255, 255, 255, 0.07);
+      border-color: rgba(240, 248, 255, 0.42);
+    }
+
+    .lil-gui button:active {
+      transform: scale(0.985);
+    }
+
+    .lil-gui select,
+    .lil-gui option,
+    .lil-gui option:checked {
+      color: var(--ui-text);
+      background: rgb(20, 28, 44);
+    }
+
+    .lil-gui .folder > .title {
+      position: relative;
+      margin-bottom: 0;
+      padding-left: calc(6px + 2px + 41%);
+      background: transparent;
+      border: none;
+      box-shadow: none;
+      border-radius: 14px;
+    }
+
+    .lil-gui .folder {
+      margin-bottom: 8px;
+      margin-right: 8px;
+      padding: 6px 8px 8px;
+      border: 1px solid rgba(255, 255, 255, 0.09);
+      border-radius: 24px;
+      background:
+        linear-gradient(180deg, rgba(255, 255, 255, 0.065), rgba(255, 255, 255, 0.022)),
+        linear-gradient(180deg, rgba(18, 29, 49, 0.52), rgba(14, 22, 38, 0.42));
+      box-shadow:
+        inset 0 1px 0 rgba(255, 255, 255, 0.1),
+        inset 0 -1px 0 rgba(255, 255, 255, 0.03),
+        0 12px 26px -24px rgba(0, 0, 0, 0.55);
+      overflow: hidden;
+      width: calc(100% - 8px);
+      max-width: calc(100% - 8px);
+    }
+
+    .lil-gui .folder > .children > .controller {
+      margin-bottom: 3px;
+      padding-top: 3px;
+      padding-bottom: 3px;
+    }
+
+    .lil-gui .folder > .children {
+      margin-top: 2px;
+      padding-right: 3px;
+      padding-bottom: 2px;
+      padding-left: 3px;
+    }
+
+    .lil-gui.root::-webkit-scrollbar {
+      width: 10px;
+    }
+
+    .lil-gui.root::-webkit-scrollbar-track {
+      background: transparent;
+    }
+
+    .lil-gui.root::-webkit-scrollbar-thumb {
+      border: 2px solid transparent;
+      border-radius: 999px;
+      background: rgba(190, 230, 255, 0.28);
+      background-clip: padding-box;
+    }
+
+    .lil-gui.root::-webkit-scrollbar-thumb:hover {
+      background: rgba(210, 240, 255, 0.4);
+      background-clip: padding-box;
+    }
+
+    .lil-gui .folder > .title::before {
+      content: "";
+      position: absolute;
+      left: calc(6px + 2px + 41% - 12px);
+      top: 50%;
+      width: 4px;
+      height: 4px;
+      border-radius: 50%;
+      background: var(--ui-accent);
+      box-shadow: 0 0 10px rgba(190, 235, 255, 0.8);
+      transform: translateY(-50%);
+    }
+
+    .lil-gui .folder:last-of-type {
+      margin-bottom: 6px;
+    }
+
+    .lil-gui.root > .title::before,
+    .lil-gui.root > .title::after {
+      content: "";
+      position: absolute;
+      top: 50%;
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+      transform: translateY(-50%);
+      box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.35);
+    }
+
+    .lil-gui.root > .title::before {
+      left: 14px;
+      background: rgba(255, 95, 86, 0.95);
+      box-shadow:
+        16px 0 0 rgba(255, 189, 46, 0.95),
+        32px 0 0 rgba(39, 201, 63, 0.95),
+        inset 0 1px 0 rgba(255, 255, 255, 0.35);
+    }
+
+    .lil-gui.root > .title::after {
+      left: 12px;
+      width: calc(100% - 24px);
+      height: 1px;
+      border-radius: 1px;
+      background: linear-gradient(90deg, rgba(255, 255, 255, 0.08), rgba(255, 255, 255, 0.02));
+      transform: none;
+      top: auto;
+      bottom: -9px;
+      box-shadow: none;
+    }
+
+    /* Actual lil-gui class overrides */
+    .lil-gui.lil-root {
+      --width: 352px;
+      --name-width: 41%;
+      --font-size: 11px;
+      --widget-height: 25px;
+      --spacing: 4px;
+      --padding: 7px;
+      --slider-knob-width: 14px;
+      --widget-border-radius: 999px;
+      margin: 14px;
+      padding: 9px;
+      padding-right: 20px;
+      max-width: calc(100vw - 24px);
+      max-height: calc(100vh - 28px);
+      overflow: hidden;
+      overflow-x: hidden;
+      scrollbar-gutter: stable;
+      background:
+        linear-gradient(180deg, rgba(255, 255, 255, 0.14), rgba(255, 255, 255, 0.035)),
+        linear-gradient(160deg, rgba(50, 82, 112, 0.34), rgba(9, 18, 34, 0.68));
+      border: 1px solid var(--ui-border);
+      border-radius: 24px;
+      box-shadow:
+        0 24px 64px -26px var(--ui-shadow),
+        0 14px 34px -24px rgba(166, 215, 255, 0.26),
+        inset 0 1px 0 rgba(255, 255, 255, 0.18);
+      backdrop-filter: blur(30px) saturate(150%);
+      -webkit-backdrop-filter: blur(30px) saturate(150%);
+    }
+
+    .lil-gui.lil-root > .lil-title {
+      position: relative;
+      height: auto;
+      margin-bottom: 6px;
+      padding: 11px 12px 11px 48px;
+      background: linear-gradient(180deg, rgba(255, 255, 255, 0.12), rgba(255, 255, 255, 0.03));
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      border-radius: 17px;
+      box-shadow:
+        inset 0 1px 0 rgba(255, 255, 255, 0.14),
+        inset 0 -1px 0 rgba(255, 255, 255, 0.03);
+      color: var(--ui-text);
+      letter-spacing: 0.02em;
+    }
+
+    .lil-gui.lil-root > .lil-title::before {
+      content: "";
+      position: absolute;
+      left: 14px;
+      top: 50%;
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+      background: rgba(255, 95, 86, 0.95);
+      transform: translateY(-50%);
+      box-shadow:
+        16px 0 0 rgba(255, 189, 46, 0.95),
+        32px 0 0 rgba(39, 201, 63, 0.95),
+        inset 0 1px 0 rgba(255, 255, 255, 0.35);
+    }
+
+    .lil-gui.lil-root > .lil-children {
+      padding-right: 10px;
+      overflow-x: hidden;
+      overflow-y: auto;
+      background: transparent;
+    }
+
+    .lil-gui.lil-root > .lil-children::-webkit-scrollbar {
+      width: 8px;
+      background: transparent;
+    }
+
+    .lil-gui.lil-root > .lil-children::-webkit-scrollbar-track {
+      background: rgba(255, 255, 255, 0.03);
+      border-radius: 999px;
+    }
+
+    .lil-gui.lil-root > .lil-children::-webkit-scrollbar-thumb {
+      border: 1px solid transparent;
+      border-radius: 999px;
+      background: rgba(190, 230, 255, 0.3);
+      background-clip: padding-box;
+    }
+
+    .lil-gui.lil-root > .lil-children::-webkit-scrollbar-thumb:hover {
+      background: rgba(210, 240, 255, 0.42);
+      background-clip: padding-box;
+    }
+
+    .lil-gui.lil-root > .lil-children > .lil-gui {
+      margin: 0 8px 10px 0;
+      padding: 7px 9px 9px;
+      width: calc(100% - 8px);
+      border: 1px solid rgba(255, 255, 255, 0.09);
+      border-radius: 26px;
+      background:
+        linear-gradient(180deg, rgba(255, 255, 255, 0.065), rgba(255, 255, 255, 0.022)),
+        linear-gradient(180deg, rgba(18, 29, 49, 0.52), rgba(14, 22, 38, 0.42));
+      box-shadow:
+        inset 0 1px 0 rgba(255, 255, 255, 0.11),
+        inset 0 -1px 0 rgba(255, 255, 255, 0.03),
+        0 14px 28px -25px rgba(0, 0, 0, 0.55);
+      overflow: hidden;
+    }
+
+    .lil-gui.lil-root > .lil-children > .lil-gui > .lil-title {
+      height: auto;
+      margin: 0;
+      padding: 9px 12px 9px calc(7px + 2px + 41%);
+      background: transparent;
+      border: none;
+      border-radius: 16px;
+      box-shadow: none;
+      color: var(--ui-text);
+      letter-spacing: 0.01em;
+    }
+
+    .lil-gui.lil-root > .lil-children > .lil-gui > .lil-title::before {
+      position: absolute;
+      left: calc(7px + 2px + 41% - 12px);
+      top: 50%;
+      transform: translateY(-50%);
+      padding-right: 0;
+      color: var(--ui-accent);
+      text-shadow: 0 0 10px rgba(190, 235, 255, 0.8);
+    }
+
+    .lil-gui.lil-root > .lil-children > .lil-gui > .lil-children {
+      margin-top: 2px;
+      padding: 0 3px 2px;
+      border: none;
+    }
+
+    .lil-gui .lil-controller {
+      margin: 4px 0;
+      padding: 3px 7px;
+      border: 1px solid rgba(255, 255, 255, 0.035);
+      border-radius: 15px;
+      background: linear-gradient(180deg, rgba(255, 255, 255, 0.05), rgba(255, 255, 255, 0.02));
+      box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.045);
+    }
+
+    .lil-gui .lil-controller:hover {
+      border-color: rgba(255, 255, 255, 0.065);
+      background: linear-gradient(180deg, rgba(255, 255, 255, 0.075), rgba(255, 255, 255, 0.03));
+    }
+
+    .lil-gui .lil-controller > .lil-name {
+      color: var(--ui-text-soft);
+      font-weight: 500;
+      padding-right: var(--spacing);
+      padding-left: 2px;
+    }
+
+    .lil-gui .lil-widget {
+      border-radius: 999px;
+      background: var(--ui-track);
+      border: 1px solid rgba(255, 255, 255, 0.07);
+      box-shadow: inset 0 1px 1px rgba(0, 0, 0, 0.18);
+      overflow: hidden;
+    }
+
+    .lil-gui .lil-slider {
+      min-height: 100%;
+      background: rgba(255, 255, 255, 0.07);
+      border-radius: 999px;
+    }
+
+    .lil-gui .lil-fill {
+      background: var(--ui-fill);
+      box-shadow:
+        0 0 10px rgba(180, 230, 255, 0.16),
+        inset 0 1px 0 rgba(255, 255, 255, 0.26);
+    }
+
+    .lil-gui input[type="text"],
+    .lil-gui input[type="number"],
+    .lil-gui select {
+      border-radius: 999px;
+      background: rgba(255, 255, 255, 0.055);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.05);
+      color: var(--ui-text);
+    }
+
+    .lil-gui input[type="checkbox"] {
+      width: 16px;
+      height: 16px;
+      border-radius: 4px;
+      border: 1px solid rgba(235, 245, 255, 0.45);
+      background: rgba(255, 255, 255, 0.08);
+      box-shadow:
+        0 0 0 1px rgba(140, 200, 235, 0.08),
+        inset 0 1px 0 rgba(255, 255, 255, 0.14);
+    }
+
+    .lil-gui input[type="checkbox"]:checked:before {
+      color: var(--ui-text);
+    }
+
+    .lil-gui .lil-controller button {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 25px;
+      line-height: 1.2;
+      padding: 0 12px;
+      border-radius: 999px;
+      background:
+        linear-gradient(180deg, rgba(214, 242, 255, 0.2), rgba(173, 224, 255, 0.1)),
+        rgba(255, 255, 255, 0.04);
+      border: 1px solid var(--ui-border-strong);
+      box-shadow:
+        0 10px 18px -16px rgba(145, 210, 255, 0.4),
+        inset 0 1px 0 rgba(255, 255, 255, 0.18);
+    }
+
+    .lil-gui .lil-controller.lil-option .lil-display {
+      color: var(--ui-text);
+      background: rgba(255, 255, 255, 0.055);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      border-radius: 999px;
+    }
+  </style>
+  <script type="module" crossorigin src="./assets/index-B8ybOfsy.js"></script>
+</head>
+<body>
+</body>
+</html>
